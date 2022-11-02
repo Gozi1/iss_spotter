@@ -13,6 +13,7 @@ const fetchMyIP = (callback) => {
   request(`https://api.ipify.org/?format=json`, (error, response, body) => {
     if (error) return callback(error,null);
     // if non-200 status, assume server error
+    
     if (response.statusCode !== 200) {
       const msg = `Status Code ${response.statusCode} when fetching IP. Response: ${body}`;
       callback(Error(msg), null);
@@ -20,17 +21,26 @@ const fetchMyIP = (callback) => {
     }
     
     const ip = JSON.parse(body);
-    callback(error,ip);
+    callback(error,ip.ip);
   });
 };
 
+/**
+ * Makes a single API request to retrieve the lat/lng for a given IPv4 address.
+ * Input:
+ *   - The ip (ipv4) address (string)
+ *   - A callback (to pass back an error or the lat/lng object)
+ * Returns (via Callback):
+ *   - An error, if any (nullable)
+ *   - The lat and lng as an object (null if error). Example:
+ *     { latitude: '49.27670', longitude: '-123.13000' }
+ */
 const fetchCoordsByIP = (ip,callback) =>{
   request(`http://ipwho.is/${ip}`, (error, response, body) => {
     if (error) return callback(error,null);
-
     const data = JSON.parse(body);
     if (!data.success){
-      const message = `Success status was ${data.success}. Server message says: ${data.message} when fetching for IP ${data.ip}`;
+      const message = `Success status was ${data.success}. Server message says: ${data.message} when fetching Coordinates for ${ip.ip}`;
       callback(Error(message), null);
       return;
     } 
@@ -75,8 +85,26 @@ const fetchCoordsByIP = (ip,callback) =>{
  *     [ { risetime: <number>, duration: <number> }, ... ]
  */ 
  const nextISSTimesForMyLocation = function(callback) {
-  // empty for now
-}
+  fetchMyIP((error, ip) => {
+    if (error) {
+      return callback(error, null);
+    }
+
+    fetchCoordsByIP(ip, (error, loc) => {
+      if (error) {
+        return callback(error, null);
+      }
+
+      fetchISSFlyOverTimes(loc, (error, nextPasses) => {
+        if (error) {
+          return callback(error, null);
+        }
+
+        callback(null, nextPasses);
+      });
+    });
+  });
+};
 
 
 module.exports = { fetchMyIP,fetchCoordsByIP,fetchISSFlyOverTimes,nextISSTimesForMyLocation };
